@@ -2,7 +2,7 @@ from utils import *
 from optimizers import SGLD
 import torch.nn as nn 
 import torch.nn.functional as F 
-import copy
+import copy 
 
 class BaseNet(object):
     def __init__(self):
@@ -72,7 +72,33 @@ class Linear_2L(nn.Module):
         x = self.act(x)
         y = self.fc3(x)
         return y
+    
+class Flatten(torch.nn.Module):
+    def forward(self, input):
+        return input.view(input.size(0), -1)
 
+class LeNet(nn.Sequential):
+    ### for mnist 28x28 data
+    def __init__(self):
+        super().__init__(
+            torch.nn.Conv2d(1, 6, 5, padding=2),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+            torch.nn.Conv2d(6, 16, 5),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(2, 2),
+            Flatten(),
+            torch.nn.Linear(16 * 5 * 5, 120),
+            torch.nn.ReLU(),
+            torch.nn.Linear(120, 84),
+            torch.nn.ReLU(),
+            torch.nn.Linear(84, 10)
+        )
+
+
+
+# Langevin dynamics from "https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=56f89ce43d7e386bface3cba63e674fe748703fc" 
+# Used with optimizers injected with Gaussian noise
 class Net_langevin(BaseNet):
 
     def __init__(self, lr=1e-3, channels_in=3, side_in=28, cuda=True, classes=10, N_train=60000, prior_sig=0,

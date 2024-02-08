@@ -283,8 +283,17 @@ class BlockDiagonal(Curvature):
                 n, s = add[index], multiply[index]
             else:
                 n, s = add, multiply
-            reg = torch.diag(value.new(value.shape[0]).fill_(n))
-            self.inv_state[layer] = (s * value + reg).inverse().cholesky()
+            reg = torch.diag(value.new(value.shape[0]).fill_(n)) 
+            # through adapting the norm term n can help the matrix becomes positive-definite
+            reg_norm = (s * value + reg)
+            
+            try:
+                chol_reg = reg_norm.inverse().cholesky()
+            except RuntimeError:
+                print("PyTorch Cholesky is singular. Using Numpy.")
+                chol_reg = torch.from_numpy(cholesky(inv(reg_norm.cpu().numpy()))).to(value.device)
+
+            self.inv_state[layer] = chol_reg
 
     def sample(self,
                layer: Module) -> Tensor:

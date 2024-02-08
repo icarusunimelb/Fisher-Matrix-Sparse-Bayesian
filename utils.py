@@ -14,6 +14,7 @@ from PIL import Image
 import torch.utils.data as data
 from tqdm import tqdm
 from scipy.stats import entropy
+from sklearn import datasets
 try:
     import cPickle as pickle
 except:
@@ -165,6 +166,8 @@ def get_loglike(mu, sigma, y, y_means, y_stds):
     ll = diagonal_gauss_loglike(y_un, mu_un, sigma_un)
     return ll.mean(dim=0)
 
+### matrix functions 
+
 def get_eigenvalues(factors: List[Tensor],
                     verbose: bool = False) -> Tensor:
     """Computes the eigenvalues of KFAC, EFB or diagonal factors.
@@ -229,6 +232,7 @@ def kron(a: Tensor,
     """
     return torch.einsum("ab,cd->acbd", [a, b]).contiguous().view(a.size(0) * b.size(0), a.size(1) * b.size(1))
 
+### metrics functions 
 def negative_log_likelihood(probabilities: array,
                             labels: array) -> float:
     """Computes the Negative Log-Likelihood (NLL) of the predicted class probabilities.
@@ -381,3 +385,24 @@ def predictive_entropy(probabilities: array,
     if mean:
         return np.mean(pred_ent)
     return pred_ent
+
+### data generator 
+
+def toy_classification_gen(random_seed=2222, train_size=500, test_size=50, centers=5, cluster_std=1.2, train_range=(-10, 10), test_range=(-15,15), random_state=33): 
+    ### note sklearn uses numpy.random throughout, therefore use np.random.seed() here
+    np.random.seed(random_seed)
+    X, Y = datasets.make_blobs(n_samples=train_size, centers=centers, cluster_std=cluster_std, center_box=train_range, random_state=random_state)
+    test_rng = np.linspace(*test_range, test_size)
+    X1_test, X2_test = np.meshgrid(test_rng, test_rng)
+    return X, Y, X1_test, X2_test
+
+def toy_regression_gen(n_samples=100, X_range=(-4, 4), Y_noise_range=(0,9), sorted=False):
+    # y = x^3
+    data = torch.Tensor()
+    X_Sampler = torch.distributions.uniform.Uniform(X_range[0], X_range[1])
+    Y_Sampler = torch.distributions.normal.Normal(Y_noise_range[0],Y_noise_range[1])
+    for i in range(n_samples):
+        x = X_Sampler.sample() 
+        y = x*x*x+Y_Sampler.sample()
+        data = torch.cat([data, Variable(torch.tensor([x,y],dtype=torch.float)).reshape(1,-1)],dim=0) 
+    return data[data[:,0].sort()[1]] if sorted == True else data
