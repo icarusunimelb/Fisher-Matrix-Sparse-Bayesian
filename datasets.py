@@ -69,7 +69,7 @@ def kmnist(root: str= "~/.torch/datasets",
 
 
 def cifar10(root: str= "~/.torch/datasets", 
-          batch_size: int=32, 
+          batch_size: int=128, 
           split: str="train") -> DataLoader:
     normalize = Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
     transform = Compose([ToTensor(), normalize])
@@ -85,7 +85,7 @@ def cifar10(root: str= "~/.torch/datasets",
     return data_loader
 
 def svhn(root: str= "~/.torch/datasets", 
-          batch_size: int=32, 
+          batch_size: int=128, 
           split: str="train") -> DataLoader:
     normalize = Normalize([0.4914, 0.4822, 0.4465], [0.2023, 0.1994, 0.2010])
     transform = Compose([ToTensor(), normalize])

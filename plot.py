@@ -48,6 +48,8 @@ def toy_regression_plot(X: Tensor,
                         sgd_predictions: Tensor, 
                         mean_predictions: Tensor, 
                         std_predictions: Tensor):
+    plt.figure(figsize=(6, 5))
+
     plt.plot(X.cpu().detach().numpy(), Y.cpu().detach().numpy(), marker="o", linestyle='None', color='black')
     plt.plot(X.cpu().detach().numpy(), np.power(X.cpu().detach().numpy(), 3), color='black') 
     plt.plot(X.cpu().detach().numpy(), sgd_predictions.cpu().detach().numpy(), color='red') 
@@ -56,6 +58,10 @@ def toy_regression_plot(X: Tensor,
     plt.fill_between(X.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()-3*std_predictions.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()+3*std_predictions.cpu().detach().numpy(), color='lightskyblue')
     plt.fill_between(X.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()-2*std_predictions.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()+2*std_predictions.cpu().detach().numpy(), color='skyblue')
     plt.fill_between(X.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()-std_predictions.cpu().detach().numpy(), mean_predictions.cpu().detach().numpy()+std_predictions.cpu().detach().numpy(), color='deepskyblue')
+    
+    plt.xlabel("x",fontsize=16)
+    plt.ylabel("y",fontsize=16)
+
     plt.show()
 
 

@@ -42,7 +42,7 @@ class BaseNet(object):
         self.model = state_dict['model']
         self.optimizer = state_dict['optimizer']
         print('  restoring epoch: %d, lr: %f' % (self.epoch, self.lr))
-        return self.epoch
+        return self.epoch 
 
 class Linear_2L(nn.Module):
     def __init__(self, input_dim, output_dim, n_hid):
@@ -96,7 +96,18 @@ class LeNet(nn.Sequential):
             torch.nn.Linear(84, 10)
         )
 
+def lenet5(pretrained=True, device=torch.device('cuda')):
+    model = LeNet()
+
+    if pretrained:
+        state_path = os.path.join(os.path.abspath(os.getcwd()), "weights", "lenet5_mnist.pt")
+        state_dict = torch.load(state_path, map_location=device)
+        model.load_state_dict(state_dict)
+
+    return model
+
 ### ResNet18
+### The pre-trained weight for CIFAR10 can be found in <https://github.com/huyvnphan/PyTorch_CIFAR10/blob/master/data.py>
 
 def conv3x3(in_planes, out_planes, stride=1, groups=1, dilation=1):
     """3x3 convolution with padding"""
@@ -287,10 +298,15 @@ class ResNet(torch.nn.Module):
 
         return x
     
-def resnet18(num_classes=10, **kwargs):
+def resnet18(pretrained=True, num_classes=10, device = torch.device('cuda'), **kwargs):
     model = ResNet(block=BasicBlock, num_classes=num_classes, layers=[2, 2, 2, 2], **kwargs)
-    return model
 
+    if pretrained:
+        state_path = os.path.join(os.path.abspath(os.getcwd()), "weights", "resnet18_cifar10.pt")
+        state_dict = torch.load(state_path, map_location=device)
+        model.load_state_dict(state_dict)
+
+    return model
 
 
 # Langevin dynamics from "https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=56f89ce43d7e386bface3cba63e674fe748703fc" 
