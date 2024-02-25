@@ -91,10 +91,10 @@ def svhn(root: str= "~/.torch/datasets",
     transform = Compose([ToTensor(), normalize])
     
     if 'train' in split:
-        train_set = SVHN(root, train=True, transform=transform, download=True)
+        train_set = SVHN(root, split='train', transform=transform, download=True)
         data_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, pin_memory=True)
     elif 'test' in split:
-        test_set = SVHN(root, train=False, transform=transform, download=True)
+        test_set = SVHN(root, split='test', transform=transform, download=True)
         data_loader = DataLoader(test_set, batch_size=256)
     else: 
         raise TypeError

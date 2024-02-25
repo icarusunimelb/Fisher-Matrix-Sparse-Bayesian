@@ -11,6 +11,8 @@ from torch.nn import Module, Sequential
 import torch.nn.functional as F
 from tqdm import tqdm
 from utils import get_eigenvectors, kron
+from collections import OrderedDict
+ 
 
 class Curvature(ABC):
     """Base class for all src approximations.
@@ -423,9 +425,6 @@ class KFAC(Curvature):
 
             reg_frst = s ** 0.5 * first + diag_frst
             reg_scnd = s ** 0.5 * second + diag_scnd
-
-            reg_frst = (reg_frst + reg_frst.t()) / 2.0
-            reg_scnd = (reg_scnd + reg_scnd.t()) / 2.0
 
             try:
                 chol_ifrst = reg_frst.inverse().cholesky()

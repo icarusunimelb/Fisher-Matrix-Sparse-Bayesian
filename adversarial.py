@@ -9,8 +9,8 @@ from torchvision import datasets, transforms
 import numpy as np
 import matplotlib.pyplot as plt
 
-def ufgsm_attack(images: Tensor, 
-                model: Union[Module, Sequential],
+def ufgsm_attack(model: Union[Module, Sequential],
+                images: Tensor, 
                 labels: Tensor,
                 criterion=CrossEntropyLoss(),
                 epsilon:float = 0.1):
@@ -22,7 +22,7 @@ def ufgsm_attack(images: Tensor,
     Args:
         epsilon: the step size of FGSM. Intuitively we would expect the larger the epsilon, the more noticeable the perturbations but the more effective the attack in terms of degrading model accuracy.
     '''
-    norm_min, norm_max = images.min().numpy(), images.max().numpy()
+    norm_min, norm_max = images.min(), images.max()
     images.requires_grad = True 
 
     logits = model(images)

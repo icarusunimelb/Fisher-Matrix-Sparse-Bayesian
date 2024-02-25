@@ -28,7 +28,7 @@ def eval_nn(model,
         labels = labels_list.numpy()
 
     if verbose:
-        print(f"Accuracy: {accuracy(predictions, labels):.2f}% | ECE: {100 * expected_calibration_error(predictions, labels)[0]:.2f}%")
+        print(f"Accuracy: {accuracy(predictions, labels):.4f}% | ECE: {expected_calibration_error(predictions, labels)[0]:.4f} | Entropy: {predictive_entropy(predictions, mean=True):.4f}")
 
     return predictions, labels
 
@@ -78,28 +78,15 @@ def train_script(model_name: str = 'lenet5',
 
     torch.save(model.state_dict(), path) 
 
-def calc_info_matrix(model_name, dataset_name, est_name = 'Diagonal', last_layer_mode = False, version_suffix = 0, epochs = 20, sample_size = 20, device=torch.device('cuda')):
+def calc_info_matrix(model, data, model_name, dataset_name, est_name = 'Diagonal', last_layer_mode = False, factors = None, version_suffix = 0, epochs = 1, sample_size = 20, device=torch.device('cuda')):
     if last_layer_mode:
         last_layer_suffix = 'll'
     else:
         last_layer_suffix = 'fl'
-    
-    assert(model_name in ['lenet5', 'resnet18'], "Model not in scope!")
-    if model_name == 'lenet5':
-        model = lenet5(pretrained=True)
-    else:
-        model = resnet18(pretrained=True)
-    model.to(device).train()
-
-    assert(dataset_name in ['mnist', 'cifar10'], "Dataset not in scope!")
-    if dataset_name == 'mnist':
-        data = mnist(split='train')
-    else:
-        data = cifar10(split='train')
 
     criterion = torch.nn.CrossEntropyLoss().to(device)
 
-    assert(est_name in ['Diagonal', 'BlockDiagonal', 'KFAC', 'EFB'], "Estimator not in scope!")
+    assert est_name in ['Diagonal', 'BlockDiagonal', 'KFAC', 'EFB'], "Estimator not in scope!"
     if est_name == 'Diagonal':
         estimator = Diagonal(model, last_layer_mode=last_layer_mode)
     elif est_name == 'BlockDiagonal':
@@ -107,14 +94,15 @@ def calc_info_matrix(model_name, dataset_name, est_name = 'Diagonal', last_layer
     elif est_name == 'KFAC':
         estimator = KFAC(model, last_layer_mode=last_layer_mode)
     else: 
-        factors_path = os.path.join(os.path.abspath(os.getcwd()), "factors", f"{model_name}_{dataset_name}_{last_layer_suffix}_KFAC_v{version_suffix}.pt")
-        factors = torch.load(factors_path)
         estimator = EFB(model, factors, last_layer_mode=last_layer_mode)
     
-    for epoch in tqdm.tqdm(range(epochs)):
-        data = tqdm.tqdm(data, desc=f"Epoch [{epoch + 1}/{epochs}]")
+    for epoch in tqdm.tqdm(range(epochs), disable= False):
+        data = tqdm.tqdm(data, desc=f"Epoch [{epoch + 1}/{epochs}]", disable=True)
         for batch, (images, labels) in enumerate(data):
             logits = model(images.to(device))
+
+            '''
+            ### data augmentation
             dist = torch.distributions.Categorical(logits=logits)
 
             for sample in range(sample_size):
@@ -125,35 +113,28 @@ def calc_info_matrix(model_name, dataset_name, est_name = 'Diagonal', last_layer
                 loss.backward(retain_graph=True)
 
                 estimator.update(images.size(0))
+            '''
+            loss = criterion(logits, labels.to(device))
+            model.zero_grad()
+            loss.backward(retain_graph=True)
+
+            estimator.update(images.size(0))
 
     filename = f"{model_name}_{dataset_name}_{last_layer_suffix}_{est_name}_v{version_suffix}.pt"
     state_path = os.path.join(os.path.abspath(os.getcwd()), "factors", filename)
-    if est_name == 'EFB':
-        #diag_filename = f"{model_name}_{dataset_name}_{last_layer_suffix}_Diagonal_v{version_suffix}.pt"
-        #diag_state_path = os.path.join(os.path.abspath(os.getcwd()), "factors", diag_filename)
-        torch.save(estimator.state, state_path)
-        ### In case haven't run Diagonal, EFB can also generate diags state file. 
-        # torch.save(estimator.diags, diag_state_path)
-    else:
-        torch.save(estimator.state, state_path)
+    torch.save(estimator.state, state_path)
 
     return estimator
 
-def calc_lr_im(model_name, dataset_name, last_layer_mode = False, version_suffix = 0, rank = 100, device=torch.device('cuda')):
-    assert(model_name in ['lenet5', 'resnet18'], "Model not in scope!")
-    if model_name == 'lenet5':
-        model = lenet5(pretrained=True)
-    else:
-        model = resnet18(pretrained=True)
-    model.to(device).train()
-
-    assert(dataset_name in ['mnist', 'cifar10'], "Dataset not in scope!")
+def calc_lr_im(model, model_name, dataset_name, last_layer_mode = False, diags= None, factors= None, lambdas= None, version_suffix = 0, rank = 100, device=torch.device('cuda')):
 
     if last_layer_mode:
         last_layer_suffix = 'll'
     else:
         last_layer_suffix = 'fl'
 
+    ###  torch layer is compared using memory address, therefore the loaded state cannot be applied 
+    '''
     factors_path = os.path.join(os.path.abspath(os.getcwd()), "factors", f"{model_name}_{dataset_name}_{last_layer_suffix}_KFAC_v{version_suffix}.pt")
     factors = torch.load(factors_path)
 
@@ -162,9 +143,10 @@ def calc_lr_im(model_name, dataset_name, last_layer_mode = False, version_suffix
 
     diags_path = os.path.join(os.path.abspath(os.getcwd()), "factors", f"{model_name}_{dataset_name}_{last_layer_suffix}_Diagonal_v{version_suffix}.pt")
     diags = torch.load(diags_path)
+    '''
 
     # compute low rank information matrix
-    inf = INF(model, diags, factors, lambdas)
+    inf = INF(model, diags, factors, lambdas, last_layer_mode=last_layer_mode)
     inf.update(rank)
 
     filename = f"{model_name}_{dataset_name}_{last_layer_suffix}_INF_r{rank}_v{version_suffix}.pt"
@@ -176,7 +158,7 @@ def calc_lr_im(model_name, dataset_name, last_layer_mode = False, version_suffix
 def eval_bnn(model,
              dataset,
              estimator,
-             samples=30,
+             samples=50,
              device=torch.device('cuda'),
              verbose=True):
     
@@ -197,7 +179,7 @@ def eval_bnn(model,
         ent = predictive_entropy(mean_predictions, mean=True)
 
     if verbose:
-        print(f"Accuracy: {acc:.2f}% | ECE: {ece:.2f}% | Entropy: {ent:.2f}%") 
+        print(f"Accuracy: {acc:.4f}% | ECE: {ece:.4f} | Entropy: {ent:.4f}") 
     
     return mean_predictions, labels, acc, ece, ent
     
@@ -224,14 +206,14 @@ def eval_ufgsm(model, data, epsilon=0.1, device=torch.device('cuda'), verbose=Tr
     ent = predictive_entropy(adv_predictions, mean=True)
 
     if verbose:
-        print(f"Step: {epsilon:.2f} | Adv. Entropy: {ent:.2f} | Adv. Accuracy: {acc:.2f}%")
+        print(f"Step: {epsilon:.2f} | Adv. Entropy: {ent:.4f} | Adv. Accuracy: {acc:.4f}%")
 
     return adv_predictions, labels, acc, ece, ent
 
 def eval_ufgsm_bnn(model,
                   data,
                   estimator,
-                  samples=30,
+                  samples=50,
                   epsilon=0.1,
                   device=torch.device('cuda'),
                   verbose=True):
@@ -242,7 +224,7 @@ def eval_ufgsm_bnn(model,
     samples = tqdm.tqdm(range(samples), disable=not verbose)
     for _ in samples:
         estimator.sample_and_replace()
-        predictions, labels, _ = eval_ufgsm(model, data, epsilon, device=device, verbose=False)
+        predictions, labels, _ , _, _= eval_ufgsm(model, data, epsilon, device=device, verbose=False)
         mean_predictions += predictions
     mean_predictions /= len(samples)
     
@@ -251,7 +233,7 @@ def eval_ufgsm_bnn(model,
     ent = predictive_entropy(mean_predictions, mean=True)
 
     if verbose:
-        print(f"Step: {epsilon:.2f} | Adv. Entropy: {ent:.2f} | Adv. Accuracy: {acc:.2f}%")
+        print(f"Step: {epsilon:.2f} | Adv. Entropy: {ent:.4f} | Adv. Accuracy: {acc:.4f}%")
     
     return mean_predictions, labels, acc, ece, ent
 
